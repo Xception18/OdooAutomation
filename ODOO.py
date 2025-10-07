@@ -537,10 +537,10 @@ def fill_docket_form(driver, wait, row_data):
             select_first_row_in_modal_and_confirm(driver, wait, row_text=no_docket)   
     except Exception as e:
         logger.error(f"Error in docket selection: {str(e)}")
-        raise
 
     # Fill remaining fields using Excel data
-    slump_rencana = str(row_data.iloc[6]) if len(row_data) > 6 else "12"  # Column 7 (index 6)
+    slump_value = str(row_data.iloc[6]) if len(row_data) > 6 else "10" # Column 7 (index 6)
+    slump_rencana = "12" if "12.0" in slump_value else "10"
     slump_test = generate_random_slump_test(slump_rencana)
     yield_value = generate_random_yield()
     nama_teknisi = str(row_data.iloc[4]) if len(row_data) > 4 else "TEKNISI"  # Column 5 (index 4)
@@ -649,7 +649,7 @@ def alternative_form(driver, wait, next_row_data):
     add_table_rows(driver, wait, next_row_data)
 
 
-def wait_for_loading_overlay_to_disappear(driver, wait, max_wait=30):
+def wait_for_loading_overlay_to_disappear(driver, wait, max_wait=20):
     """Wait for blockUI loading overlay to disappear"""
     try:
         loading_selectors = [
@@ -721,21 +721,15 @@ def process_excel_row_with_retry(driver, wait, excel_processor, row_data, row_in
                 
         except Exception as e:
             error_message = str(e)
-            
-            # Check if it's a click intercepted error even if not ElementClickInterceptedException
-            if is_click_intercepted_error(error_message):
-                logger.warning(f"Click intercepted detected on attempt {attempt + 1}/{max_retries} for row {row_index + 1}")
+            logger.warning(f"Click intercepted detected on attempt {attempt + 1}/{max_retries} for row {row_index + 1}")
                 
-                if attempt < max_retries - 1:
-                    logger.info(f"Retrying after refresh for No. Docket: {no_docket}")
-                    refresh_and_wait(driver, wait)
-                    continue
-                else:
-                    logger.error(f"Max retries reached for row {row_index + 1}. Skipping...")
-                    return False, no_docket, f"Click intercepted after {max_retries} attempts"
+            if attempt < max_retries - 1:
+                logger.info(f"Retrying after refresh for No. Docket: {no_docket}")
+                refresh_and_wait(driver, wait)
+                continue
             else:
-                logger.error(f"Error processing row {row_index + 1}: {error_message}")
-                return False, no_docket, error_message
+                logger.error(f"Max retries reached for row {row_index + 1}. Skipping...")
+                return False, no_docket, f"Click intercepted after {max_retries} attempts"
             
     return False, no_docket, "Unknown error after all retries"
 
@@ -787,28 +781,23 @@ def process_duplicate_row_with_retry(driver, wait, next_row_data, next_row_index
                 
         except Exception as e:
             error_message = str(e)
-            
-            if is_click_intercepted_error(error_message):
-                logger.warning(f"Click intercepted detected on attempt {attempt + 1}/{max_retries}")
+            logger.warning(f"Click intercepted detected on attempt {attempt + 1}/{max_retries}")
                 
-                if attempt < max_retries - 1:
-                    logger.info(f"Retrying after refresh for No. Docket: {no_docket}")
-                    refresh_and_wait(driver, wait)
-                    navigate_and_create(driver, wait)
-                    fill_proyek_form(driver, wait, next_row_data)
+            if attempt < max_retries - 1:
+                logger.info(f"Retrying after refresh for No. Docket: {no_docket}")
+                refresh_and_wait(driver, wait)
+                navigate_and_create(driver, wait)
+                fill_proyek_form(driver, wait, next_row_data)
                     
                     # SWITCH STRATEGI: Dari duplicate ke alternative
-                    if use_duplicate:
-                        use_duplicate = False
-                        logger.info("Exception occurred, switching from duplicate_form to alternative_form strategy")
+                if use_duplicate:
+                    use_duplicate = False
+                    logger.info("Exception occurred, switching from duplicate_form to alternative_form strategy")
                     
-                    continue  # Kembali ke loop dengan fungsi berbeda
-                else:
-                    logger.error(f"Max retries reached for row {next_row_index + 1}. Skipping...")
-                    return False, no_docket, f"Click intercepted after {max_retries} attempts"
+                continue  # Kembali ke loop dengan fungsi berbeda
             else:
-                logger.error(f"Error processing row {next_row_index + 1}: {error_message}")
-                return False, no_docket, error_message
+                logger.error(f"Max retries reached for row {next_row_index + 1}. Skipping...")
+                return False, no_docket, f"Click intercepted after {max_retries} attempts"
     
     return False, no_docket, "Unknown error after all retries"
 
